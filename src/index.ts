@@ -15,6 +15,9 @@ import {
 import { HelloWorldResolver } from './resolvers/HelloWorldResolver';
 import { MovieResolver } from './resolvers/MovieResolver';
 
+const getMessagePermalink = (domain: string, channelId: string, messageId: string) =>
+    `https://${domain}.slack.com/archives/${channelId}/p${messageId}`;
+
 export const isGenericMessageEvent = (msg: MessageEvent): msg is GenericMessageEvent => {
     return (msg as GenericMessageEvent).subtype === undefined;
 };
@@ -41,35 +44,22 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
         receiver: boltReceiver,
     });
 
-    boltApp.message('hello', async ({ message, say }) => {
-        console.log('message');
-        if (!isGenericMessageEvent(message)) return;
-        console.log(message);
-        message;
-        await say(`Hey there, <@${message.user}>`);
-    });
-
-    boltApp.event('app_mention', async ({ context, event }) => {
-        try {
-            await boltApp.client.chat.postMessage({
-                token: context.botToken,
-                channel: event.channel,
-                text: `Hey yoo <@${event.user}> you mentioned me`,
-            });
-        } catch (e) {
-            console.log(`error responding ${e}`);
-        }
-    });
-
-    boltApp.shortcut('remind_me_callback', async ({ shortcut, ack, client }) => {
+    boltApp.shortcut('remind_me_callback', async ({ shortcut, ack, client, body }) => {
         try {
             // Acknowledge shortcut request
             await ack();
+            console.log(JSON.stringify(body, null, 2));
 
             // Call the views.open method using one of the built-in WebClients
-            const result = await client.views.open({
+            await client.views.open({
                 trigger_id: shortcut.trigger_id,
                 view: {
+                    private_metadata: JSON.stringify({
+                        // @ts-ignore
+                        channel_id: body?.channel?.id,
+                        // @ts-ignore
+                        message_id: body?.message?.ts,
+                    }),
                     title: {
                         type: 'plain_text',
                         text: 'My App',
@@ -106,7 +96,7 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
                             label: {
                                 type: 'plain_text',
                                 text: 'Minutes',
-                                emoji: true,
+                                emoji: false,
                             },
                         },
                         {
@@ -119,7 +109,7 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
                             label: {
                                 type: 'plain_text',
                                 text: 'Hours',
-                                emoji: true,
+                                emoji: false,
                             },
                         },
                         {
@@ -132,90 +122,15 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
                             label: {
                                 type: 'plain_text',
                                 text: 'Days',
-                                emoji: true,
+                                emoji: false,
                             },
                         },
-                        {
-                            type: 'actions',
-                            elements: [
-                                {
-                                    type: 'button',
-                                    text: {
-                                        type: 'plain_text',
-                                        text: 'Submit Relative Time',
-                                        emoji: true,
-                                    },
-                                    value: 'submit-button-action',
-                                    action_id: 'actionId-0',
-                                },
-                            ],
-                        },
-                        // {
-                        //     type: 'divider',
-                        // },
-                        // {
-                        //     type: 'header',
-                        //     text: {
-                        //         type: 'plain_text',
-                        //         text: 'Set Time',
-                        //         emoji: true,
-                        //     },
-                        // },
-                        // {
-                        //     type: 'section',
-                        //     text: {
-                        //         type: 'mrkdwn',
-                        //         text: 'What time do you want the reminder? (CT)',
-                        //     },
-                        //     accessory: {
-                        //         type: 'timepicker',
-                        //         initial_time: '13:37',
-                        //         placeholder: {
-                        //             type: 'plain_text',
-                        //             text: 'Select time',
-                        //             emoji: true,
-                        //         },
-                        //         action_id: 'timepicker-action',
-                        //     },
-                        // },
-                        // {
-                        //     type: 'section',
-                        //     text: {
-                        //         type: 'mrkdwn',
-                        //         text: 'What date do you want the reminder? (CT)',
-                        //     },
-                        //     accessory: {
-                        //         type: 'datepicker',
-                        //         initial_date: '1990-04-28',
-                        //         placeholder: {
-                        //             type: 'plain_text',
-                        //             text: 'Select a date',
-                        //             emoji: true,
-                        //         },
-                        //         action_id: 'datepicker-action',
-                        //     },
-                        // },
-                        // {
-                        //     type: 'actions',
-                        //     elements: [
-                        //         {
-                        //             type: 'button',
-                        //             text: {
-                        //                 type: 'plain_text',
-                        //                 text: 'Submit Set Time',
-                        //                 emoji: true,
-                        //             },
-                        //             value: 'click_me_123',
-                        //             action_id: 'actionId-0',
-                        //         },
-                        //     ],
-                        // },
                     ],
                 },
             });
-            console.log('result');
+            // console.log('result');
 
-            console.log(result);
+            // console.log(result);
         } catch (error) {
             console.error(error);
         }
@@ -256,10 +171,29 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
         }
     });
 
-    boltApp.view('relative_time_submission', (oof: Object): any => {
-        // @ts-ignore
-        oof.ack();
-        console.log(JSON.stringify(oof, null, 2));
+    boltApp.view('relative_time_submission', async ({ ack, body }) => {
+        try {
+            await ack();
+            const uid = body.user.id;
+            const domain = body.team!.domain;
+            const privateMetaData = JSON.parse(body.view.private_metadata);
+            const channelId = privateMetaData.channel_id;
+            const messageId = privateMetaData.message_id
+                .split('')
+                .filter((char: string) => char !== '.')
+                .join('');
+            const blockIds = body.view.blocks
+                .filter((block: any) => block?.type === 'input')
+                .map((block: any) => block?.block_id);
+            const [minutesRaw, hoursRaw, daysRaw]: string[] = blockIds.map(
+                (bid: string) => body.view.state.values[bid]['plain_text_input-action'].value,
+            );
+            console.log({ uid, domain, channelId, messageId, blockIds, minutesRaw, hoursRaw, daysRaw });
+            console.log(getMessagePermalink(domain, channelId, messageId));
+            // console.log(JSON.stringify(all, null, 4));
+        } catch (err) {
+            console.error(err);
+        }
     });
 
     app.use(boltReceiver.router);
