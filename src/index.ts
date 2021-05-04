@@ -43,12 +43,16 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
         token: process.env.SLACK_OAUTH_TOKEN,
         receiver: boltReceiver,
     });
+    // @ts-ignore
+    // We need to set the token again so we can use
+    // the client outside of a slack event context
+    boltApp.client.token = process.env.SLACK_OAUTH_TOKEN;
 
     boltApp.shortcut('remind_me_callback', async ({ shortcut, ack, client, body }) => {
         try {
             // Acknowledge shortcut request
             await ack();
-            console.log(JSON.stringify(body, null, 2));
+            // console.log(JSON.stringify(body, null, 2));
 
             // Call the views.open method using one of the built-in WebClients
             await client.views.open({
@@ -163,7 +167,6 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
         console.log('============================================');
         try {
             await ack();
-            // console.log({ body });
             // @ts-ignore
             console.log(JSON.stringify(body.view.state));
         } catch (err) {
@@ -171,7 +174,7 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
         }
     });
 
-    boltApp.view('relative_time_submission', async ({ ack, body }) => {
+    boltApp.view('relative_time_submission', async ({ ack, body, client }) => {
         try {
             await ack();
             const uid = body.user.id;
@@ -190,7 +193,12 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
             );
             console.log({ uid, domain, channelId, messageId, blockIds, minutesRaw, hoursRaw, daysRaw });
             console.log(getMessagePermalink(domain, channelId, messageId));
-            // console.log(JSON.stringify(all, null, 4));
+            const res = await client.chat.scheduleMessage({
+                channel: uid,
+                text: `Here's your reminder: ${getMessagePermalink(domain, channelId, messageId)}`,
+                post_at: String(Math.floor(Date.now() / 1000) + 15),
+            });
+            console.log(JSON.stringify(res, null, 4));
         } catch (err) {
             console.error(err);
         }
