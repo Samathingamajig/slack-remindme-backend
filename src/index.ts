@@ -68,11 +68,6 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
 
 (async () => {
     const app = express();
-    console.log({
-        token: process.env.SLACK_OAUTH_TOKEN,
-        signingSecret: process.env.SLACK_SIGNING_SECRET,
-        endpoints: '/',
-    });
     const boltReceiver = new ExpressReceiver({
         signingSecret: process.env.SLACK_SIGNING_SECRET!,
         endpoints: {
