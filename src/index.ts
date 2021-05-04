@@ -11,12 +11,52 @@ import {
     ReactionAddedEvent,
     ReactionMessageItem,
     ExpressReceiver,
+    Option,
+    KnownBlock,
 } from '@slack/bolt';
 import { HelloWorldResolver } from './resolvers/HelloWorldResolver';
 import { MovieResolver } from './resolvers/MovieResolver';
 
-const getMessagePermalink = (domain: string, channelId: string, messageId: string) =>
-    `https://${domain}.slack.com/archives/${channelId}/p${messageId}`;
+const arrayOfNumberStrings = (limit: number): string[] =>
+    Array(limit)
+        .fill(0)
+        .map((_, i) => `${i}`);
+
+const toOptionsObjectArray = (options: string[]): Option[] =>
+    options.map((num) => ({
+        text: {
+            type: 'plain_text',
+            text: num,
+            emoji: false,
+        },
+        value: num,
+    }));
+
+const simpleNumberSelectBlock = (name: string, limit: number, defaultNumber: number): KnownBlock => ({
+    type: 'input',
+    label: {
+        type: 'plain_text',
+        text: name,
+    },
+    element: {
+        type: 'static_select',
+        placeholder: {
+            type: 'plain_text',
+            text: name,
+            emoji: false,
+        },
+        options: toOptionsObjectArray(arrayOfNumberStrings(limit)),
+        action_id: 'static_select-action',
+        initial_option: {
+            text: {
+                type: 'plain_text',
+                text: `${defaultNumber}`,
+                emoji: false,
+            },
+            value: `${defaultNumber}`,
+        },
+    },
+});
 
 export const isGenericMessageEvent = (msg: MessageEvent): msg is GenericMessageEvent => {
     return (msg as GenericMessageEvent).subtype === undefined;
@@ -52,7 +92,6 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
         try {
             // Acknowledge shortcut request
             await ack();
-            // console.log(JSON.stringify(body, null, 2));
 
             // Call the views.open method using one of the built-in WebClients
             await client.views.open({
@@ -90,51 +129,12 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
                                 emoji: true,
                             },
                         },
-                        {
-                            type: 'input',
-                            element: {
-                                type: 'plain_text_input',
-                                action_id: 'plain_text_input-action',
-                                initial_value: '0',
-                            },
-                            label: {
-                                type: 'plain_text',
-                                text: 'Minutes',
-                                emoji: false,
-                            },
-                        },
-                        {
-                            type: 'input',
-                            element: {
-                                type: 'plain_text_input',
-                                action_id: 'plain_text_input-action',
-                                initial_value: '0',
-                            },
-                            label: {
-                                type: 'plain_text',
-                                text: 'Hours',
-                                emoji: false,
-                            },
-                        },
-                        {
-                            type: 'input',
-                            element: {
-                                type: 'plain_text_input',
-                                action_id: 'plain_text_input-action',
-                                initial_value: '0',
-                            },
-                            label: {
-                                type: 'plain_text',
-                                text: 'Days',
-                                emoji: false,
-                            },
-                        },
+                        simpleNumberSelectBlock('Minutes', 60, 0),
+                        simpleNumberSelectBlock('Hours', 24, 0),
+                        simpleNumberSelectBlock('Days', 15, 0),
                     ],
                 },
             });
-            // console.log('result');
-
-            // console.log(result);
         } catch (error) {
             console.error(error);
         }
@@ -145,7 +145,6 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
         console.log('============================================');
         try {
             await ack();
-            // console.log({ body });
         } catch (err) {
             console.error(err);
         }
@@ -156,7 +155,14 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
         console.log('============================================');
         try {
             await ack();
-            // console.log({ body });
+        } catch (err) {
+            console.error(err);
+        }
+    });
+
+    boltApp.action('static_select-action', async ({ ack }) => {
+        try {
+            await ack();
         } catch (err) {
             console.error(err);
         }
@@ -175,30 +181,75 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
     });
 
     boltApp.view('relative_time_submission', async ({ ack, body, client }) => {
+        client;
         try {
+            const blockIds: string[] = body.view.blocks
+                .filter((block: KnownBlock) => block.type === 'input' && block.element.type === 'static_select')
+                .map((block: any) => block.block_id);
+            const [minutesRaw, hoursRaw, daysRaw]: string[] = blockIds.map(
+                (bid: string) => body.view.state.values[bid]['static_select-action']['selected_option'].value,
+            );
+            const [minutes, hours, days]: number[] = [minutesRaw, hoursRaw, daysRaw].map(Number);
+            if (minutes === 0 && hours === 0 && days === 0) {
+                return ack({
+                    response_action: 'errors',
+                    errors: {
+                        ...blockIds.reduce((obj: any, val) => ({ ...obj, [val]: 'Not all values can be 0' }), {}),
+                    },
+                });
+            }
             await ack();
-            const uid = body.user.id;
+
+            const userId = body.user.id;
             const domain = body.team!.domain;
             const privateMetaData = JSON.parse(body.view.private_metadata);
             const channelId = privateMetaData.channel_id;
-            const messageId = privateMetaData.message_id
-                .split('')
-                .filter((char: string) => char !== '.')
-                .join('');
-            const blockIds = body.view.blocks
-                .filter((block: any) => block?.type === 'input')
-                .map((block: any) => block?.block_id);
-            const [minutesRaw, hoursRaw, daysRaw]: string[] = blockIds.map(
-                (bid: string) => body.view.state.values[bid]['plain_text_input-action'].value,
-            );
-            console.log({ uid, domain, channelId, messageId, blockIds, minutesRaw, hoursRaw, daysRaw });
-            console.log(getMessagePermalink(domain, channelId, messageId));
-            const res = await client.chat.scheduleMessage({
-                channel: uid,
-                text: `Here's your reminder: ${getMessagePermalink(domain, channelId, messageId)}`,
-                post_at: String(Math.floor(Date.now() / 1000) + 15),
+            const messageId = privateMetaData.message_id;
+            console.log({
+                uid: userId,
+                domain,
+                channelId,
+                messageId,
+                blockIds,
+                minutesRaw,
+                hoursRaw,
+                daysRaw,
+                minutes,
+                hours,
+                days,
             });
-            console.log(JSON.stringify(res, null, 4));
+            const getPermalink = await client.chat.getPermalink({ channel: channelId, message_ts: messageId });
+            if (!getPermalink.ok) {
+                await client.chat.postEphemeral({
+                    channel: channelId,
+                    user: userId,
+                    text:
+                        'An unexpected error has occurred whilst attempting to get the link of the RemindMe message. Please try again.',
+                });
+                return;
+            }
+            const permalink = getPermalink['permalink'];
+
+            const offset = ((days * 24 + hours) * 60 + minutes) * 60;
+
+            const res = await client.chat.scheduleMessage({
+                channel: userId,
+                text: `Here's your reminder: ${permalink}`,
+                post_at: String(Math.floor(Date.now() / 1000) + offset),
+            });
+            if (!res.ok) {
+                await client.chat.postEphemeral({
+                    channel: channelId,
+                    user: userId,
+                    text:
+                        'An unexpected error has occurred whilst attempting to schedule the RemindMe message. Please try again.',
+                });
+            }
+            await client.chat.postEphemeral({
+                channel: channelId,
+                user: userId,
+                text: `Success! ${res['scheduled_message_id']}`,
+            });
         } catch (err) {
             console.error(err);
         }
