@@ -14,8 +14,8 @@ import {
     Option,
     KnownBlock,
 } from '@slack/bolt';
-import { HelloWorldResolver } from './resolvers/HelloWorldResolver';
-import { MovieResolver } from './resolvers/MovieResolver';
+import { ReminderResolver } from './resolvers/ReminderResolver';
+import { Reminder } from './entity/Reminder';
 
 const arrayOfNumberStrings = (limit: number): string[] =>
     Array(limit)
@@ -195,13 +195,13 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
             }
             await ack();
 
-            const userId = body.user.id;
+            const creatorId = body.user.id;
             const domain = body.team!.domain;
             const privateMetaData = JSON.parse(body.view.private_metadata);
             const channelId = privateMetaData.channel_id;
             const messageId = privateMetaData.message_id;
             console.log({
-                uid: userId,
+                uid: creatorId,
                 domain,
                 channelId,
                 messageId,
@@ -217,33 +217,42 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
             if (!getPermalink.ok) {
                 await client.chat.postEphemeral({
                     channel: channelId,
-                    user: userId,
+                    user: creatorId,
                     text:
                         'An unexpected error has occurred whilst attempting to get the link of the RemindMe message. Please try again.',
                 });
                 return;
             }
-            const permalink = getPermalink['permalink'];
+            const permalink: string = getPermalink['permalink'] as string;
 
             const offset = ((days * 24 + hours) * 60 + minutes) * 60;
+            const postAt = Math.floor(Date.now() / 1000) + offset;
 
             const res = await client.chat.scheduleMessage({
-                channel: userId,
+                channel: creatorId,
                 text: `Here's your reminder: ${permalink}`,
-                post_at: String(Math.floor(Date.now() / 1000) + offset),
+                post_at: String(postAt),
             });
             if (!res.ok) {
                 await client.chat.postEphemeral({
                     channel: channelId,
-                    user: userId,
+                    user: creatorId,
                     text:
                         'An unexpected error has occurred whilst attempting to schedule the RemindMe message. Please try again.',
                 });
             }
             await client.chat.postEphemeral({
                 channel: channelId,
-                user: userId,
+                user: creatorId,
                 text: `Success! ${res['scheduled_message_id']}`,
+            });
+
+            const rem = await Reminder.create({ creatorId, postAt, permalink }).save();
+
+            await client.chat.postEphemeral({
+                channel: channelId,
+                user: creatorId,
+                text: `Success! ${JSON.stringify(rem)}`,
             });
         } catch (err) {
             console.error(err);
@@ -256,7 +265,7 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
 
     const apolloServer = new ApolloServer({
         schema: await buildSchema({
-            resolvers: [HelloWorldResolver, MovieResolver],
+            resolvers: [ReminderResolver],
         }),
         context: ({ req, res }) => ({ req, res }),
     });
