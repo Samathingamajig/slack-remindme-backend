@@ -16,6 +16,7 @@ import {
 } from '@slack/bolt';
 import { ReminderResolver } from './resolvers/ReminderResolver';
 import { Reminder } from './entity/Reminder';
+import { setBoltApp } from './boltApp';
 
 const arrayOfNumberStrings = (limit: number): string[] =>
     Array(limit)
@@ -74,10 +75,12 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
             events: '/slack/events',
         },
     });
-    const boltApp = new BoltApp({
-        token: process.env.SLACK_OAUTH_TOKEN,
-        receiver: boltReceiver,
-    });
+    const boltApp = setBoltApp(
+        new BoltApp({
+            token: process.env.SLACK_OAUTH_TOKEN,
+            receiver: boltReceiver,
+        }),
+    );
     // @ts-ignore
     // We need to set the token again so we can use
     // the client outside of a slack event context
@@ -241,13 +244,14 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
                         'An unexpected error has occurred whilst attempting to schedule the RemindMe message. Please try again.',
                 });
             }
+            const scheduledMessageId = res['scheduled_message_id'] as string;
             await client.chat.postEphemeral({
                 channel: channelId,
                 user: creatorId,
-                text: `Success! ${res['scheduled_message_id']}`,
+                text: `Success! ${scheduledMessageId}`,
             });
 
-            const rem = await Reminder.create({ creatorId, postAt, permalink }).save();
+            const rem = await Reminder.create({ creatorId, postAt, permalink, scheduledMessageId }).save();
 
             await client.chat.postEphemeral({
                 channel: channelId,

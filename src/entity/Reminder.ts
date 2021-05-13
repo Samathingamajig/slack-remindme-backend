@@ -19,4 +19,7 @@ export class Reminder extends BaseEntity {
     @Field(() => Int)
     @Column('int')
     postAt: number;
+
+    @Column()
+    scheduledMessageId: string;
 }
