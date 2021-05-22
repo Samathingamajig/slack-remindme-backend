@@ -92,11 +92,15 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
         expSession({
             store: new (pgSession(expSession))({
                 pool: pool,
-                tableName: process.env['DATABASE_SESSION_TABLE_NAME'],
+                tableName: process.env['SESSION_TABLE_NAME'],
             }),
-            secret: 'pog',
+            secret:
+                process.env['SESSION_COOKIE_SECRET'] ||
+                'djfaiosdjfafoiufosdifufo3ouf98dv97sahdah4hv6 4yt 8xcsyvsadadasdasdwefrgregfghfjukikfsdyv9eg',
             resave: false,
             cookie: {
+                httpOnly: true,
+                secure: false,
                 maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
             },
             saveUninitialized: false,
