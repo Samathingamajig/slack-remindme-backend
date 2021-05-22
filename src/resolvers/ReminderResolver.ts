@@ -1,17 +1,16 @@
-import { Resolver, Query, Arg, Mutation, InputType, Field, Int } from 'type-graphql';
+import { Resolver, Query, Arg, Mutation, InputType, Field, Int, UseMiddleware, Ctx } from 'type-graphql';
 import { LessThan } from 'typeorm';
 import { Reminder } from './../entity/Reminder';
 import { ReminderResponse } from '../graphql-types/ReminderResponse';
 import { getBoltApp } from '../boltApp';
 import { BooleanResponse } from '../graphql-types/BooleanResponse';
+import { isAuth } from '../middleware/isAuth';
+import { MyContext } from '../graphql-types/MyContext';
 
 @InputType()
 class ReminderUpdateInput {
     @Field()
     id: string;
-
-    @Field()
-    creatorId: string;
 
     @Field(() => Int)
     postAt: number;
@@ -21,9 +20,6 @@ class ReminderUpdateInput {
 class ReminderDeletionInput {
     @Field()
     id: string;
-
-    @Field()
-    creatorId: string;
 }
 
 @Resolver()
@@ -34,8 +30,9 @@ export class ReminderResolver {
     }
 
     @Query(() => [Reminder])
-    myReminders(@Arg('creatorId', () => String) creatorId: string) {
-        return Reminder.find({ where: { creatorId } });
+    @UseMiddleware(isAuth)
+    myReminders(@Ctx() ctx: MyContext) {
+        return Reminder.find({ where: { creatorId: ctx.req.session.slackId } });
     }
 
     @Mutation(() => Number)
@@ -44,9 +41,12 @@ export class ReminderResolver {
     }
 
     @Mutation(() => ReminderResponse)
+    @UseMiddleware(isAuth)
     async updateReminder(
-        @Arg('reminder', () => ReminderUpdateInput) { id, creatorId, postAt }: ReminderUpdateInput,
+        @Arg('reminder', () => ReminderUpdateInput) { id, postAt }: ReminderUpdateInput,
+        @Ctx() ctx: MyContext,
     ): Promise<ReminderResponse> {
+        const creatorId = ctx.req.session.slackId;
         const boltApp = getBoltApp();
         if (!boltApp) {
             return {
@@ -136,8 +136,10 @@ export class ReminderResolver {
     }
 
     @Mutation(() => BooleanResponse)
+    @UseMiddleware(isAuth)
     async removeReminder(
-        @Arg('reminder', () => ReminderDeletionInput) { id, creatorId }: ReminderDeletionInput,
+        @Arg('reminder', () => ReminderDeletionInput) { id }: ReminderDeletionInput,
+        @Ctx() ctx: MyContext,
     ): Promise<BooleanResponse> {
         const boltApp = getBoltApp();
         if (!boltApp) {
@@ -166,7 +168,7 @@ export class ReminderResolver {
         const { scheduledMessageId } = reminder;
         try {
             const deleteResponse = await boltApp.client.chat.deleteScheduledMessage({
-                channel: creatorId,
+                channel: ctx.req.session.slackId!,
                 scheduled_message_id: scheduledMessageId,
             });
             console.log(JSON.stringify(deleteResponse, null, 2));
