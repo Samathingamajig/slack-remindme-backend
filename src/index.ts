@@ -79,6 +79,7 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
     const app = express();
 
     const pool = new pg.Pool({
+        host: process.env['DATABASE_HOST'],
         database: process.env['DATABASE_NAME'],
         user: process.env['DATABASE_USER'],
         password: process.env['DATABASE_PASSWORD'],
