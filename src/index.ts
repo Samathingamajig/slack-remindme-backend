@@ -221,8 +221,7 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
                 await client.chat.postEphemeral({
                     channel: channelId,
                     user: creatorId,
-                    text:
-                        'An unexpected error has occurred whilst attempting to get the link of the RemindMe message. Please try again.',
+                    text: 'An unexpected error has occurred whilst attempting to get the link of the RemindMe message. Please try again.',
                 });
                 return;
             }
@@ -240,8 +239,7 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
                 await client.chat.postEphemeral({
                     channel: channelId,
                     user: creatorId,
-                    text:
-                        'An unexpected error has occurred whilst attempting to schedule the RemindMe message. Please try again.',
+                    text: 'An unexpected error has occurred whilst attempting to schedule the RemindMe message. Please try again.',
                 });
             }
             const scheduledMessageId = res['scheduled_message_id'] as string;
