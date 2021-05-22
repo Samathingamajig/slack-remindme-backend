@@ -14,6 +14,7 @@ import {
     Option,
     KnownBlock,
 } from '@slack/bolt';
+import { AuthResolver } from './resolvers/AuthResolver';
 import { ReminderResolver } from './resolvers/ReminderResolver';
 import { Reminder } from './entity/Reminder';
 import { setBoltApp } from './boltApp';
@@ -304,9 +305,14 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
 
     const apolloServer = new ApolloServer({
         schema: await buildSchema({
-            resolvers: [ReminderResolver],
+            resolvers: [AuthResolver, ReminderResolver],
         }),
         context: ({ req, res }) => ({ req, res }),
+        playground: {
+            settings: {
+                'request.credentials': 'include',
+            },
+        },
     });
 
     apolloServer.applyMiddleware({ app, cors: false });
