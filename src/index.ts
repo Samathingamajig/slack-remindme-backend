@@ -17,6 +17,9 @@ import {
 import { ReminderResolver } from './resolvers/ReminderResolver';
 import { Reminder } from './entity/Reminder';
 import { setBoltApp } from './boltApp';
+import pg = require('pg');
+import expSession = require('express-session');
+import pgSession = require('connect-pg-simple');
 
 const arrayOfNumberStrings = (limit: number): string[] =>
     Array(limit)
@@ -68,7 +71,39 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
 };
 
 (async () => {
+    const connection = await createConnection();
+    await connection.runMigrations();
+    console.log('done with migrations');
+
     const app = express();
+
+    const pool = new pg.Pool({
+        database: process.env['DATABASE_NAME'],
+        user: process.env['DATABASE_USER'],
+        password: process.env['DATABASE_PASSWORD'],
+        port: Number(process.env['DATABASE_PORT']),
+        ssl: false,
+        max: 20, // set pool max size to 20
+        idleTimeoutMillis: 1000, // close idle clients after 1 second
+        connectionTimeoutMillis: 1000, // return an error after 1 second if connection could not be established
+    });
+
+    app.use(
+        expSession({
+            store: new (pgSession(expSession))({
+                pool: pool,
+                tableName: process.env['DATABASE_SESSION_TABLE_NAME'],
+            }),
+            secret: 'pog',
+            resave: false,
+            cookie: {
+                maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+            },
+            saveUninitialized: false,
+            name: 'jid',
+        }),
+    );
+
     const boltReceiver = new ExpressReceiver({
         signingSecret: process.env.SLACK_SIGNING_SECRET!,
         endpoints: {
@@ -262,8 +297,6 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
     });
 
     app.use(boltReceiver.router);
-
-    await createConnection();
 
     const apolloServer = new ApolloServer({
         schema: await buildSchema({
