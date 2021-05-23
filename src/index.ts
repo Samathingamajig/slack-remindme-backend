@@ -18,6 +18,7 @@ import { AuthResolver } from './resolvers/AuthResolver';
 import { ReminderResolver } from './resolvers/ReminderResolver';
 import { Reminder } from './entity/Reminder';
 import { setBoltApp } from './boltApp';
+import cors from 'cors';
 import pg = require('pg');
 import expSession = require('express-session');
 import pgSession = require('connect-pg-simple');
@@ -77,6 +78,14 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
     console.log('done with migrations');
 
     const app = express();
+    app.set('trust proxy', 1);
+
+    app.use(
+        cors({
+            origin: 'http://localhost:3000',
+            credentials: true,
+        }),
+    );
 
     const pool = new pg.Pool({
         host: process.env['DATABASE_HOST'],
@@ -102,8 +111,9 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
             resave: false,
             cookie: {
                 httpOnly: true,
-                secure: false,
+                secure: process.env.NODE_ENV === 'production',
                 maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             },
             saveUninitialized: false,
             name: 'jid',
