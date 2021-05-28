@@ -2,6 +2,7 @@
     "name": "backend",
     "version": "1.0.0",
     "main": "index.js",
+    "author": "Samuel \"Samathingamajig\" Gunter",
     "license": "MIT",
     "devDependencies": {
         "@types/connect-pg-simple": "^4.2.2",
