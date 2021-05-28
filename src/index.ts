@@ -142,6 +142,10 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
             // Acknowledge shortcut request
             await ack();
 
+            // console.log('==============================');
+            // console.log(JSON.stringify((body as any).message, null, 4));
+            // console.log('==============================');
+
             // Call the views.open method using one of the built-in WebClients
             await client.views.open({
                 trigger_id: shortcut.trigger_id,
@@ -250,23 +254,23 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
             await ack();
 
             const creatorId = body.user.id;
-            const domain = body.team!.domain;
+            // const domain = body.team!.domain;
             const privateMetaData = JSON.parse(body.view.private_metadata);
             const channelId = privateMetaData.channel_id;
             const messageId = privateMetaData.message_id;
-            console.log({
-                uid: creatorId,
-                domain,
-                channelId,
-                messageId,
-                blockIds,
-                minutesRaw,
-                hoursRaw,
-                daysRaw,
-                minutes,
-                hours,
-                days,
-            });
+            // console.log({
+            //     uid: creatorId,
+            //     domain,
+            //     channelId,
+            //     messageId,
+            //     blockIds,
+            //     minutesRaw,
+            //     hoursRaw,
+            //     daysRaw,
+            //     minutes,
+            //     hours,
+            //     days,
+            // });
             const getPermalink = await client.chat.getPermalink({ channel: channelId, message_ts: messageId });
             if (!getPermalink.ok) {
                 await client.chat.postEphemeral({

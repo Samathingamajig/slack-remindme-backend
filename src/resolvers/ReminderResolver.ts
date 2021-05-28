@@ -113,11 +113,12 @@ export class ReminderResolver {
             };
         }
         try {
-            const deleteResponse = await boltApp.client.chat.deleteScheduledMessage({
+            // const deleteResponse =
+            await boltApp.client.chat.deleteScheduledMessage({
                 channel: creatorId,
                 scheduled_message_id: oldScheduledMessageId,
             });
-            console.log(JSON.stringify(deleteResponse, null, 2));
+            // console.log(JSON.stringify(deleteResponse, null, 2));
         } catch (err) {
             console.log('CAUGHT DELETE SCHEDULED');
             console.error(err);
@@ -167,11 +168,12 @@ export class ReminderResolver {
         }
         const { scheduledMessageId } = reminder;
         try {
-            const deleteResponse = await boltApp.client.chat.deleteScheduledMessage({
+            // const deleteResponse =
+            await boltApp.client.chat.deleteScheduledMessage({
                 channel: ctx.req.session.slackId!,
                 scheduled_message_id: scheduledMessageId,
             });
-            console.log(JSON.stringify(deleteResponse, null, 2));
+            // console.log(JSON.stringify(deleteResponse, null, 2));
         } catch (err) {
             console.log('CAUGHT DELETE SCHEDULED');
             console.error(err);
@@ -187,10 +189,10 @@ export class ReminderResolver {
         }
         try {
             const result = await Reminder.delete({ id });
-            console.log(JSON.stringify(result, null, 2));
+            // console.log(JSON.stringify(result, null, 2));
 
             if (result.affected! > 0) {
-                console.log('success');
+                // console.log('success');
                 return {
                     success: true,
                 };
