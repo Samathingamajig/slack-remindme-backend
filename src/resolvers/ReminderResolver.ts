@@ -25,11 +25,6 @@ class ReminderDeletionInput {
 @Resolver()
 export class ReminderResolver {
     @Query(() => [Reminder])
-    allReminders() {
-        return Reminder.find();
-    }
-
-    @Query(() => [Reminder])
     @UseMiddleware(isAuth)
     myReminders(@Ctx() ctx: MyContext) {
         return Reminder.find({ where: { creatorId: ctx.req.session.slackId } });
