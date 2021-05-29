@@ -8,7 +8,6 @@ export class Reminder extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Field(() => String)
     @Column()
     creatorId: string;
 
@@ -22,4 +21,21 @@ export class Reminder extends BaseEntity {
 
     @Column()
     scheduledMessageId: string;
+
+    @Column()
+    authorId: string;
+
+    @Field(() => String)
+    @Column()
+    authorName: string;
+
+    @Column()
+    channelId: string;
+
+    @Field(() => String)
+    @Column()
+    channelName: string;
+
+    @Column()
+    messageTs: string;
 }
