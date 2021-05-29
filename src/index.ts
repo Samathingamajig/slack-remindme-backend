@@ -72,6 +72,13 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
     return (item as ReactionMessageItem).type === 'message';
 };
 
+interface PrivateMetadata {
+    authorId: string;
+    channelId: string;
+    channelName: string;
+    messageTs: string;
+}
+
 (async () => {
     const connection = await createConnection();
     await connection.runMigrations();
@@ -138,24 +145,23 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
     boltApp.client.token = process.env.SLACK_OAUTH_TOKEN;
 
     boltApp.shortcut('remind_me_callback', async ({ shortcut, ack, client, body }) => {
+        // console.log('====================');
+        // console.log(JSON.stringify(body, null, 2));
+        // console.log('====================');
         try {
             // Acknowledge shortcut request
             await ack();
-
-            // console.log('==============================');
-            // console.log(JSON.stringify((body as any).message, null, 4));
-            // console.log('==============================');
 
             // Call the views.open method using one of the built-in WebClients
             await client.views.open({
                 trigger_id: shortcut.trigger_id,
                 view: {
                     private_metadata: JSON.stringify({
-                        // @ts-ignore
-                        channel_id: body?.channel?.id,
-                        // @ts-ignore
-                        message_id: body?.message?.ts,
-                    }),
+                        authorId: (body as any).message.user,
+                        channelId: (body as any).channel.id,
+                        channelName: (body as any).channel.name,
+                        messageTs: (body as any).message.ts,
+                    } as PrivateMetadata),
                     title: {
                         type: 'plain_text',
                         text: 'My App',
@@ -234,7 +240,6 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
     });
 
     boltApp.view('relative_time_submission', async ({ ack, body, client }) => {
-        client;
         try {
             const blockIds: string[] = body.view.blocks
                 .filter((block: KnownBlock) => block.type === 'input' && block.element.type === 'static_select')
@@ -255,23 +260,10 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
 
             const creatorId = body.user.id;
             // const domain = body.team!.domain;
-            const privateMetaData = JSON.parse(body.view.private_metadata);
-            const channelId = privateMetaData.channel_id;
-            const messageId = privateMetaData.message_id;
-            // console.log({
-            //     uid: creatorId,
-            //     domain,
-            //     channelId,
-            //     messageId,
-            //     blockIds,
-            //     minutesRaw,
-            //     hoursRaw,
-            //     daysRaw,
-            //     minutes,
-            //     hours,
-            //     days,
-            // });
-            const getPermalink = await client.chat.getPermalink({ channel: channelId, message_ts: messageId });
+            const { authorId, channelId, messageTs, channelName }: PrivateMetadata = JSON.parse(
+                body.view.private_metadata,
+            );
+            const getPermalink = await client.chat.getPermalink({ channel: channelId, message_ts: messageTs });
             if (!getPermalink.ok) {
                 await client.chat.postEphemeral({
                     channel: channelId,
@@ -285,26 +277,47 @@ export const isMessageItem = (item: ReactionAddedEvent['item']): item is Reactio
             const offset = ((days * 24 + hours) * 60 + minutes) * 60;
             const postAt = Math.floor(Date.now() / 1000) + offset;
 
-            const res = await client.chat.scheduleMessage({
+            const scheduleMessageRes = await client.chat.scheduleMessage({
                 channel: creatorId,
                 text: `Here's your reminder: ${permalink}`,
                 post_at: String(postAt),
             });
-            if (!res.ok) {
+            if (!scheduleMessageRes.ok) {
                 await client.chat.postEphemeral({
                     channel: channelId,
                     user: creatorId,
                     text: 'An unexpected error has occurred whilst attempting to schedule the RemindMe message. Please try again.',
                 });
+                return;
             }
-            const scheduledMessageId = res['scheduled_message_id'] as string;
+            const scheduledMessageId = scheduleMessageRes['scheduled_message_id'] as string;
             await client.chat.postEphemeral({
                 channel: channelId,
                 user: creatorId,
                 text: `Success! ${scheduledMessageId}`,
             });
 
-            const rem = await Reminder.create({ creatorId, postAt, permalink, scheduledMessageId }).save();
+            const author = await client.users.info({ user: authorId });
+            if (!author.ok) {
+                await client.chat.postEphemeral({
+                    channel: channelId,
+                    user: creatorId,
+                    text: 'An unexpected error has occurred whilst attempting to get information on the Author. Please try again.',
+                });
+                return;
+            }
+
+            const rem = await Reminder.create({
+                creatorId,
+                permalink,
+                postAt,
+                scheduledMessageId,
+                authorId,
+                authorName: (author as any).user.profile.display_name_normalized,
+                channelId,
+                channelName,
+                messageTs,
+            }).save();
 
             await client.chat.postEphemeral({
                 channel: channelId,
