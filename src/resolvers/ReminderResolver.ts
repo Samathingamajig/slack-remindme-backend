@@ -161,26 +161,28 @@ export class ReminderResolver {
                 ],
             };
         }
-        const { scheduledMessageId } = reminder;
-        try {
-            // const deleteResponse =
-            await boltApp.client.chat.deleteScheduledMessage({
-                channel: ctx.req.session.slackId!,
-                scheduled_message_id: scheduledMessageId,
-            });
-            // console.log(JSON.stringify(deleteResponse, null, 2));
-        } catch (err) {
-            console.log('CAUGHT DELETE SCHEDULED');
-            console.error(err);
-            return {
-                success: false,
-                errors: [
-                    {
-                        path: '_',
-                        message: `Error deleting previously scheduled message: ${err.data.error}${err.data.error}`,
-                    },
-                ],
-            };
+        const { scheduledMessageId, postAt } = reminder;
+        if (postAt * 1000 > Date.now()) {
+            try {
+                // const deleteResponse =
+                await boltApp.client.chat.deleteScheduledMessage({
+                    channel: ctx.req.session.slackId!,
+                    scheduled_message_id: scheduledMessageId,
+                });
+                // console.log(JSON.stringify(deleteResponse, null, 2));
+            } catch (err) {
+                console.log('CAUGHT DELETE SCHEDULED');
+                console.error(err);
+                return {
+                    success: false,
+                    errors: [
+                        {
+                            path: '_',
+                            message: `Error deleting previously scheduled message: ${err.data.error}`,
+                        },
+                    ],
+                };
+            }
         }
         try {
             const result = await Reminder.delete({ id });
