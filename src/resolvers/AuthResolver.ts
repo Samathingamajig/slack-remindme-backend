@@ -17,6 +17,7 @@ export class AuthResolver {
             if (!authRes.ok) return false;
             ctx.req.session.slackId = (authRes as any).authed_user.id;
         } catch (err) {
+            console.log(err);
             return false;
         }
 
