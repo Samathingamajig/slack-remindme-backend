@@ -291,11 +291,13 @@ interface PrivateMetadata {
                 return;
             }
             const scheduledMessageId = scheduleMessageRes['scheduled_message_id'] as string;
-            await client.chat.postEphemeral({
-                channel: channelId,
-                user: creatorId,
-                text: `Success! ${scheduledMessageId}`,
-            });
+            await client.chat
+                .postEphemeral({
+                    channel: channelId,
+                    user: creatorId,
+                    text: `Success! ${scheduledMessageId}`,
+                })
+                .catch((err) => console.log(err));
 
             const author = await client.users.info({ user: authorId });
             if (!author.ok) {
