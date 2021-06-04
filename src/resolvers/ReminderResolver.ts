@@ -27,7 +27,7 @@ export class ReminderResolver {
     @Query(() => [Reminder])
     @UseMiddleware(isAuth)
     myReminders(@Ctx() ctx: MyContext) {
-        return Reminder.find({ where: { creatorId: ctx.req.session.slackId } });
+        return Reminder.find({ where: { creatorId: ctx.req.session.slackId }, order: { postAt: 'ASC' } });
     }
 
     @Mutation(() => Number)

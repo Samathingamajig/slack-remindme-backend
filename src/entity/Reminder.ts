@@ -1,7 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, BaseEntity } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, BaseEntity, Index } from 'typeorm';
 import { Field, Int, ObjectType } from 'type-graphql';
 
 @ObjectType()
+@Index(['creatorId', 'postAt'])
 @Entity()
 export class Reminder extends BaseEntity {
     @Field(() => String)
