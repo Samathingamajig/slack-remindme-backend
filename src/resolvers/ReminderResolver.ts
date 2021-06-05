@@ -6,6 +6,7 @@ import { getBoltApp } from '../boltApp';
 import { BooleanResponse } from '../graphql-types/BooleanResponse';
 import { isAuth } from '../middleware/isAuth';
 import { MyContext } from '../graphql-types/MyContext';
+import { ReminderIdsResponse } from './../graphql-types/ReminderIdsResponse';
 
 @InputType()
 class ReminderUpdateInput {
@@ -207,5 +208,32 @@ export class ReminderResolver {
                 ],
             };
         }
+    }
+
+    @Mutation(() => ReminderIdsResponse)
+    @UseMiddleware(isAuth)
+    async removeMyExpiredReminders(@Ctx() ctx: MyContext): Promise<ReminderIdsResponse> {
+        const boltApp = getBoltApp();
+        if (!boltApp) {
+            return {
+                errors: [
+                    {
+                        path: '_',
+                        message: 'Server side error, Slack bot has not been initialized',
+                    },
+                ],
+            };
+        }
+        const deletionQueryResponse = await getConnection()
+            .createQueryBuilder()
+            .delete()
+            .from(Reminder)
+            .where('creatorId = :creatorId AND postAt < :postAt', {
+                creatorId: ctx.req.session.slackId,
+                postAt: Math.floor(Date.now() / 1000),
+            })
+            .returning('id')
+            .execute();
+        return { reminderIds: (deletionQueryResponse.raw as { id: string }[]).map(({ id }) => id) };
     }
 }
