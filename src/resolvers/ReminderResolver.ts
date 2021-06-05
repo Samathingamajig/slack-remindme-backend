@@ -86,6 +86,9 @@ export class ReminderResolver {
             };
         }
         const { permalink, scheduledMessageId: oldScheduledMessageId } = oldReminder;
+        let newReminder: Reminder = new Reminder();
+        Object.assign(newReminder, oldReminder);
+        newReminder.postAt = postAt;
         try {
             const res = await boltApp.client.chat.scheduleMessage({
                 channel: creatorId,
@@ -107,28 +110,30 @@ export class ReminderResolver {
                 ],
             };
         }
-        try {
-            // const deleteResponse =
-            await boltApp.client.chat.deleteScheduledMessage({
-                channel: creatorId,
-                scheduled_message_id: oldScheduledMessageId,
-            });
-            // console.log(JSON.stringify(deleteResponse, null, 2));
-        } catch (err) {
-            console.log('CAUGHT DELETE SCHEDULED');
-            console.error(err);
-            return {
-                errors: [
-                    {
-                        path: '_',
-                        message: `Error deleting previously scheduled message: ${err.data.error}${err.data.error}`,
-                    },
-                ],
-            };
+        if (oldReminder.postAt > Math.floor(Date.now() / 1000)) {
+            try {
+                // const deleteResponse =
+                await boltApp.client.chat.deleteScheduledMessage({
+                    channel: creatorId,
+                    scheduled_message_id: oldScheduledMessageId,
+                });
+                // console.log(JSON.stringify(deleteResponse, null, 2));
+            } catch (err) {
+                console.log('CAUGHT DELETE SCHEDULED');
+                console.error(err);
+                return {
+                    reminder: newReminder,
+                    errors: [
+                        {
+                            path: '_',
+                            message: `Reminder was successfully updated, by an error occurred while deleting previously scheduled message. This most likely means you'll get an extra reminder ping.\n${err.data.error}`,
+                        },
+                    ],
+                };
+            }
         }
 
-        const reminder = (await Reminder.findOne({ id }))!;
-        return { reminder };
+        return { reminder: newReminder };
     }
 
     @Mutation(() => BooleanResponse)
