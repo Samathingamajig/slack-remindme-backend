@@ -147,9 +147,6 @@ interface PrivateMetadata {
     boltApp.client.token = process.env.SLACK_OAUTH_TOKEN;
 
     boltApp.shortcut('remind_me_callback', async ({ shortcut, ack, client, body }) => {
-        console.log('====================');
-        console.log(JSON.stringify(body, null, 2));
-        console.log('====================');
         try {
             // Acknowledge shortcut request
             await ack();
@@ -169,7 +166,6 @@ interface PrivateMetadata {
                     limit: 1,
                 });
             } catch (err) {
-                // console.log(JSON.stringify(err, null, 4));
                 await client.chat.postEphemeral({
                     channel: channelId,
                     text:
@@ -180,8 +176,6 @@ interface PrivateMetadata {
                 });
                 return;
             }
-            (() => fetchedMessage)();
-            console.log(JSON.stringify(fetchedMessage, null, 4));
 
             // Call the views.open method using one of the built-in WebClients
             await client.views.open({
@@ -228,46 +222,6 @@ interface PrivateMetadata {
             });
         } catch (error) {
             console.error(error);
-        }
-    });
-
-    boltApp.action('timepicker-action', async ({ ack }) => {
-        console.log('timepicker-action');
-        console.log('============================================');
-        try {
-            await ack();
-        } catch (err) {
-            console.error(err);
-        }
-    });
-
-    boltApp.action('datepicker-action', async ({ ack }) => {
-        console.log('datepicker-action');
-        console.log('============================================');
-        try {
-            await ack();
-        } catch (err) {
-            console.error(err);
-        }
-    });
-
-    boltApp.action('static_select-action', async ({ ack }) => {
-        try {
-            await ack();
-        } catch (err) {
-            console.error(err);
-        }
-    });
-
-    boltApp.action('submit-button-action', async ({ ack, body }) => {
-        console.log('submit-button-action');
-        console.log('============================================');
-        try {
-            await ack();
-            // @ts-ignore
-            console.log(JSON.stringify(body.view.state));
-        } catch (err) {
-            console.error(err);
         }
     });
 
@@ -323,13 +277,6 @@ interface PrivateMetadata {
                 return;
             }
             const scheduledMessageId = scheduleMessageRes['scheduled_message_id'] as string;
-            await client.chat
-                .postEphemeral({
-                    channel: channelId,
-                    user: creatorId,
-                    text: `Success! ${scheduledMessageId}`,
-                })
-                .catch((err) => console.log(err));
 
             const author = await client.users.info({ user: authorId });
             if (!author.ok) {
@@ -341,7 +288,7 @@ interface PrivateMetadata {
                 return;
             }
 
-            const rem = await Reminder.create({
+            await Reminder.create({
                 creatorId,
                 permalink,
                 postAt,
@@ -357,7 +304,7 @@ interface PrivateMetadata {
             await client.chat.postEphemeral({
                 channel: channelId,
                 user: creatorId,
-                text: `Success! ${JSON.stringify(rem)}`,
+                text: `Success!`,
             });
         } catch (err) {
             console.error(err);
