@@ -39,4 +39,8 @@ export class Reminder extends BaseEntity {
 
     @Column()
     messageTs: string;
+
+    @Field(() => String)
+    @Column()
+    messageContent: string;
 }

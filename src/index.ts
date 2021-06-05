@@ -14,6 +14,7 @@ import {
     Option,
     KnownBlock,
 } from '@slack/bolt';
+import { WebAPICallResult } from '@slack/web-api/dist/WebClient';
 import { AuthResolver } from './resolvers/AuthResolver';
 import { ReminderResolver } from './resolvers/ReminderResolver';
 import { Reminder } from './entity/Reminder';
@@ -77,6 +78,7 @@ interface PrivateMetadata {
     channelId: string;
     channelName: string;
     messageTs: string;
+    messageContent: string;
 }
 
 (async () => {
@@ -145,22 +147,52 @@ interface PrivateMetadata {
     boltApp.client.token = process.env.SLACK_OAUTH_TOKEN;
 
     boltApp.shortcut('remind_me_callback', async ({ shortcut, ack, client, body }) => {
-        // console.log('====================');
-        // console.log(JSON.stringify(body, null, 2));
-        // console.log('====================');
+        console.log('====================');
+        console.log(JSON.stringify(body, null, 2));
+        console.log('====================');
         try {
             // Acknowledge shortcut request
             await ack();
+
+            const creatorId = (body as any).user.id;
+            const authorId = (body as any).message.user;
+            const channelId = (body as any).channel.id;
+            const channelName = (body as any).channel.name;
+            const messageTs = (body as any).message.ts;
+
+            let fetchedMessage: WebAPICallResult | undefined;
+            try {
+                fetchedMessage = await client.conversations.history({
+                    channel: channelId,
+                    latest: messageTs,
+                    inclusive: true,
+                    limit: 1,
+                });
+            } catch (err) {
+                // console.log(JSON.stringify(err, null, 4));
+                await client.chat.postEphemeral({
+                    channel: channelId,
+                    text:
+                        err.data.error === 'not_in_channel'
+                            ? 'Please add me to the channel (ping me)'
+                            : 'Any unexpected error has occurred, please try again later.',
+                    user: creatorId,
+                });
+                return;
+            }
+            (() => fetchedMessage)();
+            console.log(JSON.stringify(fetchedMessage, null, 4));
 
             // Call the views.open method using one of the built-in WebClients
             await client.views.open({
                 trigger_id: shortcut.trigger_id,
                 view: {
                     private_metadata: JSON.stringify({
-                        authorId: (body as any).message.user,
-                        channelId: (body as any).channel.id,
-                        channelName: (body as any).channel.name,
-                        messageTs: (body as any).message.ts,
+                        authorId,
+                        channelId,
+                        channelName,
+                        messageTs,
+                        messageContent: (fetchedMessage as any).messages[0].text,
                     } as PrivateMetadata),
                     title: {
                         type: 'plain_text',
@@ -260,7 +292,7 @@ interface PrivateMetadata {
 
             const creatorId = body.user.id;
             // const domain = body.team!.domain;
-            const { authorId, channelId, messageTs, channelName }: PrivateMetadata = JSON.parse(
+            const { authorId, channelId, messageTs, channelName, messageContent }: PrivateMetadata = JSON.parse(
                 body.view.private_metadata,
             );
             const getPermalink = await client.chat.getPermalink({ channel: channelId, message_ts: messageTs });
@@ -319,6 +351,7 @@ interface PrivateMetadata {
                 channelId,
                 channelName,
                 messageTs,
+                messageContent,
             }).save();
 
             await client.chat.postEphemeral({
