@@ -231,6 +231,7 @@ interface PrivateMetadata {
                 .filter((block: KnownBlock) => block.type === 'input' && block.element.type === 'static_select')
                 .map((block: any) => block.block_id);
             const [minutesRaw, hoursRaw, daysRaw]: string[] = blockIds.map(
+                // @ts-ignore I don't know why there's an error here. Docker's ts-node claims there is one here, but my ts-node doesn't
                 (bid: string) => body.view.state.values[bid]['static_select-action']['selected_option'].value,
             );
             const [minutes, hours, days]: number[] = [minutesRaw, hoursRaw, daysRaw].map(Number);
